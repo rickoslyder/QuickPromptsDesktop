@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Prompt Selector</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .container {
+            padding: 16px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .search-box {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 12px;
+            outline: none;
+        }
+        
+        .search-box:focus {
+            border-color: #007bff;
+        }
+        
+        .prompt-item {
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .prompt-item:hover {
+            background: #f8f9fa;
+            border-color: #007bff;
+        }
+        
+        .prompt-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        
+        .prompt-preview {
+            font-size: 12px;
+            color: #666;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        
+        .no-results {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+        
+        .header {
+            background: #f8f9fa;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e0e0e0;
+            font-weight: 600;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        QuickPrompts - Select a prompt to insert
+    </div>
+    <div class="container">
+        <input type="text" class="search-box" placeholder="Search prompts..." id="searchBox">
+        <div id="promptList"></div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+        
+        let allPrompts = [];
+        let filteredPrompts = [];
+        
+        // Load prompts when window opens
+        async function loadPrompts() {
+            try {
+                allPrompts = await ipcRenderer.invoke('get-prompts');
+                filteredPrompts = [...allPrompts];
+                renderPrompts();
+            } catch (error) {
+                console.error('Failed to load prompts:', error);
+            }
+        }
+        
+        function renderPrompts() {
+            const promptList = document.getElementById('promptList');
+            
+            if (filteredPrompts.length === 0) {
+                promptList.innerHTML = '<div class="no-results">No prompts found</div>';
+                return;
+            }
+            
+            promptList.innerHTML = filteredPrompts.map(prompt => `
+                <div class="prompt-item" onclick="insertPrompt('${prompt.id}')">
+                    <div class="prompt-name" style="color: ${prompt.color || '#333'}">
+                        ${prompt.icon ? prompt.icon + ' ' : ''}${prompt.name}
+                    </div>
+                    <div class="prompt-preview">${prompt.text}</div>
+                </div>
+            `).join('');
+        }
+        
+        function filterPrompts(searchTerm) {
+            if (!searchTerm.trim()) {
+                filteredPrompts = [...allPrompts];
+            } else {
+                const term = searchTerm.toLowerCase();
+                filteredPrompts = allPrompts.filter(prompt => 
+                    prompt.name.toLowerCase().includes(term) ||
+                    prompt.text.toLowerCase().includes(term) ||
+                    prompt.category.toLowerCase().includes(term)
+                );
+            }
+            renderPrompts();
+        }
+        
+        async function insertPrompt(promptId) {
+            const prompt = allPrompts.find(p => p.id === promptId);
+            if (prompt) {
+                try {
+                    await ipcRenderer.invoke('insert-prompt', prompt.text);
+                    window.close();
+                } catch (error) {
+                    console.error('Failed to insert prompt:', error);
+                }
+            }
+        }
+        
+        // Search functionality
+        document.getElementById('searchBox').addEventListener('input', (e) => {
+            filterPrompts(e.target.value);
+        });
+        
+        // Handle keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                window.close();
+            }
+        });
+        
+        // Load prompts on startup
+        loadPrompts();
+    </script>
+</body>
+</html>
