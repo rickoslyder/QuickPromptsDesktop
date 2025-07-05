@@ -1,11 +1,13 @@
 import { Prompt, OpenAIModel, OpenAIError, CategoryResult, ModelsResult, EnhancePromptResult, EnhancementHistoryItem, CategorySuggestion } from './types';
+import { buildCompletionParams, getModelErrorMessage } from './modelConfig';
 
 /**
  * Uses OpenAI API to suggest categories for a list of prompts
  */
 export const getCategorySuggestions = async (
   apiKey: string,
-  prompts: Prompt[]
+  prompts: Prompt[],
+  modelId?: string
 ): Promise<CategoryResult> => {
   if (!apiKey) {
     return {
@@ -21,12 +23,13 @@ export const getCategorySuggestions = async (
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: `You are a helpful assistant that categorizes prompts. 
+      body: JSON.stringify(
+        buildCompletionParams(
+          modelId || "gpt-4o-mini", // Use provided model or default to gpt-4o-mini
+          [
+            {
+              role: "system",
+              content: `You are a helpful assistant that categorizes prompts. 
             Please analyze the provided prompts and suggest a suitable category for each one.
             Return your response as a valid JSON object in the following format:
             {
@@ -39,26 +42,30 @@ export const getCategorySuggestions = async (
               ]
             }
             Your response MUST be valid JSON.`,
-          },
+            },
+            {
+              role: "user",
+              content: JSON.stringify(
+                prompts.map((p) => ({ id: p.id, text: p.text }))
+              ),
+            },
+          ],
+          1500,
           {
-            role: "user",
-            content: JSON.stringify(
-              prompts.map((p) => ({ id: p.id, text: p.text }))
-            ),
-          },
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.3,
-        max_tokens: 1500,
-      }),
+            response_format: { type: "json_object" },
+            temperature: 0.3,
+          }
+        )
+      ),
     });
 
     if (!response.ok) {
       const errorData = await response.json();
+      const userFriendlyMessage = getModelErrorMessage(errorData.error);
       return {
         success: false,
         error: {
-          message: errorData.error?.message || "Request failed",
+          message: userFriendlyMessage,
           type: errorData.error?.type,
           code: errorData.error?.code,
         },
@@ -243,12 +250,16 @@ export const enhancePrompt = async (
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model: modelId, // Use the selected model ID
-        messages: messages,
-        temperature: 0.5, // Slightly creative temperature
-        max_tokens: 1000, // Allow for reasonably long prompts
-      }),
+      body: JSON.stringify(
+        buildCompletionParams(
+          modelId,
+          messages,
+          1000, // Allow for reasonably long prompts
+          {
+            temperature: 0.5, // Slightly creative temperature
+          }
+        )
+      ),
     });
 
     const responseData = await response.json();
@@ -256,10 +267,11 @@ export const enhancePrompt = async (
     if (!response.ok) {
       const error = responseData.error as OpenAIError;
       console.error("OpenAI API Error:", error);
+      const userFriendlyMessage = getModelErrorMessage(error);
       return {
         success: false,
         error: {
-          message: error?.message || "Failed to enhance prompt",
+          message: userFriendlyMessage,
           type: error?.type,
           code: error?.code,
         },

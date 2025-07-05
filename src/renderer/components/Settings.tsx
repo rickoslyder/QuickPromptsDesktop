@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserSettings, OpenAIModel } from '../../shared/types';
 import { getAvailableModels } from '../../shared/openaiApi';
+import { getModelConfig } from '../../shared/modelConfig';
 
 interface SettingsProps {
   settings: UserSettings;
@@ -85,13 +86,22 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSave }) => {
                     : 'Select a model'
                 }
               </option>
-              {availableModels.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.id}
-                </option>
-              ))}
+              {availableModels.map((model) => {
+                const config = getModelConfig(model.id);
+                const categoryLabel = config.category === 'reasoning' ? ' [Reasoning]' : config.category === 'chat' ? ' [Chat]' : '';
+                return (
+                  <option key={model.id} value={model.id} title={config.description || ''}>
+                    {config.displayName}{categoryLabel} ({config.parameters.maxTokensLimit || 'N/A'} max tokens)
+                  </option>
+                );
+              })}
             </select>
-            <small>Models will load automatically when you enter your API key</small>
+            <small>[Chat] models support all features. [Reasoning] models (o1 series) have advanced capabilities but limited JSON support.</small>
+            {formData.selectedModelId && getModelConfig(formData.selectedModelId).description && (
+              <small style={{ fontStyle: 'italic', display: 'block', marginTop: '5px' }}>
+                {getModelConfig(formData.selectedModelId).description}
+              </small>
+            )}
           </div>
         </div>
 
