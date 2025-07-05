@@ -74,10 +74,17 @@ const createPromptWindow = async (): Promise<void> => {
 
 // Create system tray
 const createTray = (): void => {
+  // Determine the correct path for the tray icon
+  const iconName = process.platform === 'darwin' ? 'tray-icon.png' : 'tray-icon.png';
+  const iconPath = app.isPackaged 
+    ? path.join(process.resourcesPath, 'app', 'dist', 'assets', iconName)
+    : path.join(__dirname, '..', 'assets', iconName);
+  
   try {
-    tray = new Tray(path.join(__dirname, '../assets/tray-icon.png'));
+    tray = new Tray(iconPath);
   } catch (error) {
-    console.log('Could not load tray icon, skipping tray');
+    console.log('Could not load tray icon from:', iconPath);
+    console.log('Error:', error);
     return;
   }
   

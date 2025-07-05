@@ -6,9 +6,10 @@
   "scripts": {
     "start": "electron dist/main/main.js",
     "dev": "concurrently \"npm run build:watch\" \"wait-on dist/main/main.js && electron dist/main/main.js\"",
-    "build": "tsc && npm run build:renderer",
+    "build": "tsc && npm run copy-assets && npm run build:renderer",
     "build:watch": "tsc --watch",
     "build:renderer": "webpack --config webpack.renderer.js",
+    "copy-assets": "mkdir -p dist/assets && cp -r src/assets/* dist/assets/",
     "package": "electron-builder",
     "test": "jest"
   },
@@ -46,13 +47,16 @@
       "node_modules/**/*"
     ],
     "mac": {
-      "category": "public.app-category.productivity"
+      "category": "public.app-category.productivity",
+      "icon": "src/assets/icon.icns"
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "src/assets/icon.png"
     },
     "linux": {
-      "target": "AppImage"
+      "target": "AppImage",
+      "icon": "src/assets/icon.png"
     }
   }
 }
